@@ -1,7 +1,8 @@
 #include <ESP8266WiFi.h>
+#include <ESP8266WiFiMulti.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
+#include <ESP8266NetBIOS.h>
 #include <TimeLib.h>
 #include <NtpClientLib.h>
 #include <RCSwitch.h>
@@ -11,6 +12,9 @@
 #include <TaskScheduler.h>
 #include <FS.h>
 #include <WiFiUdp.h>
+#include <vector>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 #include "constants.h"
 
@@ -25,6 +29,10 @@ RCSwitch mySwitch = RCSwitch();
 ESP8266WebServer server(WEBSERVER_PORT);
 const size_t bufferSize = JSON_OBJECT_SIZE(3) + 40;
 DynamicJsonBuffer jsonBuffer(bufferSize);
+ESP8266WiFiMulti wifiMulti;
+OneWire oneWire(ONEWIRE_PIN);
+DallasTemperature tempSensors(&oneWire);
+File fsUploadFile;
 
 struct _weatherInfo {
   float hom = 0;
@@ -33,8 +41,18 @@ struct _weatherInfo {
   time_t weather_updated = 0;
 } weatherInfo;
 
-Task tWeatherUpdate(WEATHER_UPDATE_MINS * TASK_MINUTE, TASK_FOREVER, &updateWeather, &scheduler, true);
+struct muCron {
+  byte day_of_week = 0;
+  byte start_hour = 12;
+  byte start_minute = 0;
+  byte operating_minutes = 0;
+  bool enabled = 0;
+};
 
+vector<muCron> timers;
+
+Task tWeatherUpdate(WEATHER_UPDATE_MINS * TASK_MINUTE, TASK_FOREVER, &updateWeather, &scheduler, true);
+Task tCronUpdate(TASK_SECOND, TASK_FOREVER, &updateCronSecond, &scheduler, false);
 
 void setPin(int state) {
   digitalWrite(LED_PIN, state);
@@ -50,32 +68,45 @@ void setupPins() {
   digitalWrite(RELAY1_PIN, OFF);
   digitalWrite(RELAY2_PIN, OFF);
 
+  pinMode(ONEWIRE_PIN, INPUT_PULLUP);
+  tempSensors.begin();
+  
   mySwitch.enableTransmit(RC_PIN);
+  
 }
 
 void setupWifiClient() {
   WiFi.mode(WIFI_STA);
   WiFi.hostname(DHCP_CLIENTNAME);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
+  wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
+  wifiMulti.addAP(WIFI_SSID_2, WIFI_PASSWORD_2);
   Serial.println("");
+  Serial.print("Connecting Wifi");
   
-  while (WiFi.status() != WL_CONNECTED) {
+  while (wifiMulti.run() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
+  
   Serial.println("");
   Serial.print("Connected to ");
-  Serial.println(WIFI_SSID);
+  Serial.println(WiFi.SSID());
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
 }
 
 void setupRequestHandlers() {
   /** Core stuff **/
-  server.serveStatic("/", SPIFFS, "index.htm");
   server.on("/led", HTTP_POST, handleLED);
-  server.on("/timed", HTTP_POST, handleTimed);
+  server.on("/scheduler", HTTP_POST, handleScheduler);
+  server.on("/scheduler_reset", HTTP_POST, handleSchedulerReset);
+  server.on("/upload_file", HTTP_POST, []() {
+      server.send(200, "text/plain", "");
+  }, handleFileUpload);
+  server.on("/scheduler_store", HTTP_POST, handleStoreSchedulerConfig);
   server.on("/info", handleInfo);
+  server.serveStatic("/", SPIFFS, "/");
   server.onNotFound(handleNotFound);
 
   /** RC Switch **/
@@ -94,23 +125,48 @@ void setupRequestHandlers() {
   server.on("/wakeup", HTTP_POST, handleWolWakeup);
 }
 
+void setupTimers() {
+   
+  File configFile = SPIFFS.open("/scheduler_config.bin", "r");
+  if(configFile) {
+   timers.clear();
+   muCron tmp;
+
+   for(int i=0; i<configFile.size(); i+= sizeof(muCron)){
+     configFile.readBytes((char*)&tmp, sizeof(muCron));
+     timers.push_back(tmp);
+   }
+  }
+  configFile.close();
+
+  Serial.print("Scheduled tasks: ");
+  Serial.println(timers.size());
+}
+
+void setupNtpSyncEvent() {
+  NTP.onNTPSyncEvent ([](NTPSyncEvent_t event) {
+    if(event == timeSyncd) {
+      tCronUpdate.enable();
+    }
+  });
+}
+
 void setup(void){
   Serial.begin(SERIAL_BAUD_RATE);
   
   setupPins();
-
   setupWifiClient();
-   
-  MDNS.begin(DHCP_CLIENTNAME);
+  setupNtpSyncEvent();
+
+  NBNS.begin(DHCP_CLIENTNAME);
   SPIFFS.begin();
   NTP.begin();
-
+  
   setupRequestHandlers();
+  setupTimers();
 
   server.begin();
   Serial.println("HTTP server started");
-
-  MDNS.addService("http", "tcp", WEBSERVER_PORT);
 }
 
 void loop(void){

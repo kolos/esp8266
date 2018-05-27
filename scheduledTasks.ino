@@ -15,3 +15,27 @@ void updateWeather() {
   
   http.end();
 }
+
+void updateCronSecond() {
+  if(! NTP.getFirstSync ()) {
+    Serial.println("Waiting for first sync..");
+    return;
+  }
+
+  for(muCron timer: timers) {
+    if(!timer.enabled) continue;
+
+    TimeElements _target;
+    breakTime(now(), _target);
+    _target.Hour = timer.start_hour;
+    _target.Minute = timer.start_minute;
+    time_t target = makeTime(_target);
+    
+    if((timer.day_of_week & (1 << dayOfWeek(target))) != 0 && now() >= target && now() < target + 60 * timer.operating_minutes) {
+      setPin(ON);
+    } else {
+      setPin(OFF);
+    }
+  }
+}
+

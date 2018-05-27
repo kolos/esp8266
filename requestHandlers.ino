@@ -1,3 +1,40 @@
+void handleFileUpload() {
+  HTTPUpload& upload = server.upload();
+
+  if(upload.status == UPLOAD_FILE_START){
+    String filename = upload.filename;
+    if(!filename.startsWith("/")) filename = "/"+filename;
+    fsUploadFile = SPIFFS.open(filename, "w");
+  } else if(upload.status == UPLOAD_FILE_WRITE){
+    if(fsUploadFile) {
+      fsUploadFile.write(upload.buf, upload.currentSize);
+    }
+  } else if(upload.status == UPLOAD_FILE_END){
+    if(fsUploadFile) {
+      fsUploadFile.close();
+      server.sendHeader("Refresh","5; url=/");
+      server.send(200, "text/plain", "File uploaded, redirect in 5 secs..");
+    } else {
+      server.send(500, "text/plain", "500: couldn't create file");
+    }
+  }
+}
+
+void handleStoreSchedulerConfig() {
+  File configFile = SPIFFS.open("/scheduler_config.bin", "w");
+        
+  if (!configFile) {
+    server.send(500, "text/plain", "500: couldn't create file");
+  } else {
+    for(muCron timer: timers) {
+      unsigned char * data = reinterpret_cast<unsigned char*>(&timer);
+      configFile.write(data, sizeof(muCron));
+    }
+    configFile.close();
+    server.send(200, "text/plain", "SchedulerConfig saved.");
+  }
+}
+
 void handleLED() {
   int led_state = !digitalRead(LED_PIN);
   digitalWrite(LED_PIN, led_state);
@@ -12,14 +49,21 @@ void handleInfo() {
     pinVal ^= digitalRead(ioPins[i]) << ioPins[i];
   }
 
+  tempSensors.requestTemperatures();
+  float temp = tempSensors.getTempCByIndex(0);
+
   String message = "{\"time\":";
   message += now();
   message += ",\"pins\":";
   message += pinVal;
   message += ",\"wifi\":";
   message += WiFi.RSSI();
-  message += ",\"uptime\":";
+  message += ",\"wifi_ssid\": \"";
+  message += WiFi.SSID();
+  message += "\",\"uptime\":";
   message += NTP.getUptime();
+  message += ",\"belso_hom\":";
+  message += temp;
   message += ",\"hom\":";
   message += weatherInfo.hom;
   message += ",\"eso_1ora\":";
@@ -32,26 +76,53 @@ void handleInfo() {
   message += ESP.getVcc();
   message += ",\"heap\":";
   message += ESP.getFreeHeap();
+  message += ",\"timers\": [";
+  for(muCron timer: timers) {
+    message += "{";
+    message += "\"day_of_week\": ";
+    message += timer.day_of_week;
+    message += ",\"start_hour\": ";
+    message += timer.start_hour;
+    message += ",\"start_minute\": ";
+    message += timer.start_minute;
+    message += ",\"operating_minutes\": ";
+    message += timer.operating_minutes;
+    message += ",\"enabled\": ";
+    message += timer.enabled;
+    message += "}, ";
+  }
+  
+  message += "null]";
   message += "}";
   server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(200, "application/json", message);
 }
 
-void handleTimed() {
-  unsigned int milis = 0;
-  String message = "";
+void handleScheduler() {
 
-  if (server.arg("seconds")== ""){  
-    message = "nincs parameter megadva!";
-  }else{
-    milis = server.arg("seconds").toInt() * 1000;
+  if(server.args() == 4
+    && server.hasArg("day_of_week")
+    && server.hasArg("start_hour")
+    && server.hasArg("start_minute")
+    && server.hasArg("operating_minutes")
+  ) {
+    muCron _tmp;
+    _tmp.day_of_week = server.arg("day_of_week").toInt();
+    _tmp.start_hour = server.arg("start_hour").toInt();
+    _tmp.start_minute = server.arg("start_minute").toInt();
+    _tmp.operating_minutes = server.arg("operating_minutes").toInt();
+    _tmp.enabled = 1;
+    timers.push_back(_tmp);
 
-    ticker.once_ms(milis, setPin, LOW);
-    message = "parameter => ";
-    message += milis;
+    server.send(200, "text/plain", "ok");
+  } else {
+    server.send(400, "text/plain", "need params: day_of_week, start_hour, start_minute, operation_minutes");
   }
-  
-  server.send(200, "text/plain", message);
+}
+
+void handleSchedulerReset() {
+  timers.clear();
+  server.send(200, "text/plain", "ok");
 }
 
 void handleLampaOn() {

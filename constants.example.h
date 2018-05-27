@@ -6,11 +6,15 @@
 #define LED_PIN               D4
 #define RELAY1_PIN            D5
 #define RELAY2_PIN            D6
+#define ONEWIRE_PIN           D7
 
 #define WEATHER_UPDATE_MINS   60
 
 #define WIFI_SSID             "***"
 #define WIFI_PASSWORD         "***"
+#define WIFI_SSID_2           "***"
+#define WIFI_PASSWORD_2       "***"
+
 #define DHCP_CLIENTNAME       "***"
 
 #define WEBSERVER_PORT        80
