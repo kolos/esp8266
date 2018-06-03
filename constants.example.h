@@ -6,9 +6,11 @@
 #define LED_PIN               D4
 #define RELAY1_PIN            D5
 #define RELAY2_PIN            D6
-#define ONEWIRE_PIN           D7
+#define ONEWIRE_PIN           D3
 
 #define WEATHER_UPDATE_MINS   60
+#define TEMP_UPLOAD_MINS      5
+#define NUM_OF_TEMP_SENSORS   4
 
 #define WIFI_SSID             "***"
 #define WIFI_PASSWORD         "***"
@@ -23,6 +25,7 @@
 #define WOL_UDP_PORT          9
 
 #define WEATHER_URL           "***"
+#define TEMP_UPLOAD_URL       "***"
 
 #define RC_LAMPA_PROTOCOL     ***
 #define RC_LAMPA_EVENT_LENGTH ***

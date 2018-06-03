@@ -20,7 +20,7 @@
 
 ADC_MODE(ADC_VCC);
 
-const int ioPins[] = { D0, D1, D2, D3, D4, D5, D6, D7, D8 };
+const byte ioPins[] = { D0, D1, D2, D3, D4, D5, D6, D7, D8 };
 
 WiFiUDP udp;
 Ticker ticker;
@@ -32,6 +32,7 @@ DynamicJsonBuffer jsonBuffer(bufferSize);
 ESP8266WiFiMulti wifiMulti;
 OneWire oneWire(ONEWIRE_PIN);
 DallasTemperature tempSensors(&oneWire);
+DeviceAddress tempDeviceAddress;
 File fsUploadFile;
 
 struct _weatherInfo {
@@ -42,17 +43,22 @@ struct _weatherInfo {
 } weatherInfo;
 
 struct muCron {
-  byte day_of_week = 0;
-  byte start_hour = 12;
-  byte start_minute = 0;
-  byte operating_minutes = 0;
-  bool enabled = 0;
+  unsigned int operating_minutes:8;
+  unsigned int day_of_week:8;
+  unsigned int enabled:1;
+  unsigned int pin:4;
+  unsigned int start_hour:5;
+  unsigned int start_minute:6;
 };
+
+int32_t pinState, pinTouched;
 
 vector<muCron> timers;
 
 Task tWeatherUpdate(WEATHER_UPDATE_MINS * TASK_MINUTE, TASK_FOREVER, &updateWeather, &scheduler, true);
+Task tUploadTemperature(TEMP_UPLOAD_MINS * TASK_MINUTE, TASK_FOREVER, &uploadTemperature, &scheduler, true);
 Task tCronUpdate(TASK_SECOND, TASK_FOREVER, &updateCronSecond, &scheduler, false);
+
 
 void setPin(int state) {
   digitalWrite(LED_PIN, state);
@@ -67,10 +73,8 @@ void setupPins() {
   pinMode(RELAY2_PIN, OUTPUT);
   digitalWrite(RELAY1_PIN, OFF);
   digitalWrite(RELAY2_PIN, OFF);
-
-  pinMode(ONEWIRE_PIN, INPUT_PULLUP);
-  tempSensors.begin();
   
+  tempSensors.begin();
   mySwitch.enableTransmit(RC_PIN);
   
 }

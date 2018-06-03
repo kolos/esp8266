@@ -87,6 +87,8 @@ void handleInfo() {
     message += timer.start_minute;
     message += ",\"operating_minutes\": ";
     message += timer.operating_minutes;
+    message += ",\"pin\": ";
+    message += timer.pin;
     message += ",\"enabled\": ";
     message += timer.enabled;
     message += "}, ";
@@ -100,23 +102,25 @@ void handleInfo() {
 
 void handleScheduler() {
 
-  if(server.args() == 4
+  if(server.args() == 5
     && server.hasArg("day_of_week")
     && server.hasArg("start_hour")
     && server.hasArg("start_minute")
     && server.hasArg("operating_minutes")
+    && server.hasArg("pin")
   ) {
     muCron _tmp;
     _tmp.day_of_week = server.arg("day_of_week").toInt();
     _tmp.start_hour = server.arg("start_hour").toInt();
     _tmp.start_minute = server.arg("start_minute").toInt();
     _tmp.operating_minutes = server.arg("operating_minutes").toInt();
+    _tmp.pin = server.arg("pin").toInt();
     _tmp.enabled = 1;
     timers.push_back(_tmp);
 
     server.send(200, "text/plain", "ok");
   } else {
-    server.send(400, "text/plain", "need params: day_of_week, start_hour, start_minute, operation_minutes");
+    server.send(400, "text/plain", "need params: day_of_week, start_hour, start_minute, operation_minutes, pin");
   }
 }
 

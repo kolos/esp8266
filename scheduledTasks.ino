@@ -1,3 +1,24 @@
+void uploadTemperature() {
+  tempSensors.requestTemperatures();
+
+  String message = "";
+  for(int i=0; i < NUM_OF_TEMP_SENSORS;i++) {
+    if(tempSensors.getAddress(tempDeviceAddress, i)) {
+      message += "temp";
+      message += i;
+      message += "=";
+      message += tempSensors.getTempC(tempDeviceAddress);
+      message += "&";
+    }
+  }
+  
+  HTTPClient http;
+  http.begin(TEMP_UPLOAD_URL);
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  http.POST(message);
+  http.end();
+}
+
 void updateWeather() {
   HTTPClient http;
   http.begin(WEATHER_URL);
@@ -22,6 +43,9 @@ void updateCronSecond() {
     return;
   }
 
+  pinState = 0;
+  pinTouched = 0;
+  
   for(muCron timer: timers) {
     if(!timer.enabled) continue;
 
@@ -32,9 +56,16 @@ void updateCronSecond() {
     time_t target = makeTime(_target);
     
     if((timer.day_of_week & (1 << dayOfWeek(target))) != 0 && now() >= target && now() < target + 60 * timer.operating_minutes) {
-      setPin(ON);
+      pinState |= 1 << timer.pin; // set PIN STATE ON      
     } else {
-      setPin(OFF);
+      pinState |= 0 << timer.pin; // set PIN STATE OFF
+    }
+    pinTouched |= 1 << timer.pin; // set PIN TOUCH true
+  }
+
+  for(int pin=0;pin<sizeof(pinState) * 8; pin++) {
+    if((pinTouched & (1 << pin)) != 0) {
+      digitalWrite(pin, ((pinState & (1 << pin)) != 0) ? ON : OFF);
     }
   }
 }
