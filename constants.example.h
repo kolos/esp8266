@@ -16,6 +16,8 @@
 #define WIFI_PASSWORD         "***"
 #define WIFI_SSID_2           "***"
 #define WIFI_PASSWORD_2       "***"
+#define WIFI_AP_SSID          "***"
+#define WIFI_AP_PASSWORD      "***"
 
 #define DHCP_CLIENTNAME       "***"
 

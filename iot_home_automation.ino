@@ -80,9 +80,10 @@ void setupPins() {
 }
 
 void setupWifiClient() {
-  WiFi.mode(WIFI_STA);
+  WiFi.mode(WIFI_AP_STA);
   WiFi.hostname(DHCP_CLIENTNAME);
 
+  WiFi.softAP(WIFI_AP_SSID, WIFI_AP_PASSWORD);
   wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
   wifiMulti.addAP(WIFI_SSID_2, WIFI_PASSWORD_2);
   Serial.println("");
@@ -96,8 +97,10 @@ void setupWifiClient() {
   Serial.println("");
   Serial.print("Connected to ");
   Serial.println(WiFi.SSID());
-  Serial.print("IP address: ");
+  Serial.print("Local IP address: ");
   Serial.println(WiFi.localIP());
+  Serial.print("SoftAP IP address: ");
+  Serial.println(WiFi.softAPIP());
 }
 
 void setupRequestHandlers() {
