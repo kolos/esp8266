@@ -2,7 +2,8 @@
 #define OFF                   HIGH
 #define ON                    LOW
 
-#define RC_PIN                D2
+#define RC_RECEIVE_PIN        D1
+#define RC_TRANSMIT_PIN       D2
 #define LED_PIN               D4
 #define RELAY1_PIN            D5
 #define RELAY2_PIN            D6
@@ -22,6 +23,7 @@
 #define DHCP_CLIENTNAME       "***"
 
 #define WEBSERVER_PORT        80
+#define WEBSOCKET_PORT        81
 
 #define WOL_TARGET_MAC        {0x***, 0x***, 0x***, 0x***, 0x***, 0x***}
 #define WOL_UDP_PORT          9

@@ -15,6 +15,7 @@
 #include <vector>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <WebSocketsServer.h>
 
 #include "constants.h"
 
@@ -34,6 +35,7 @@ OneWire oneWire(ONEWIRE_PIN);
 DallasTemperature tempSensors(&oneWire);
 DeviceAddress tempDeviceAddress;
 File fsUploadFile;
+WebSocketsServer webSocket = WebSocketsServer(WEBSOCKET_PORT);
 
 struct _weatherInfo {
   float hom = 0;
@@ -75,7 +77,8 @@ void setupPins() {
   digitalWrite(RELAY2_PIN, OFF);
   
   tempSensors.begin();
-  mySwitch.enableTransmit(RC_PIN);
+  mySwitch.enableTransmit(RC_TRANSMIT_PIN);
+  mySwitch.enableReceive(RC_RECEIVE_PIN);
   
 }
 
@@ -158,6 +161,42 @@ void setupNtpSyncEvent() {
   });
 }
 
+void setupWebsocket() {
+  webSocket.begin();
+  webSocket.onEvent(webSocketEvent);
+}
+
+void rcReceiveHandle() {
+  if (mySwitch.available()) {
+    int value = mySwitch.getReceivedValue();
+    if (value != 0) {
+      String msg = "{\"val\":";
+      msg += mySwitch.getReceivedValue();
+      msg += ", \"len\":";
+      msg += mySwitch.getReceivedBitlength();
+      msg += ", \"prot\":";
+      msg += mySwitch.getReceivedProtocol();
+      msg += "}";
+      webSocket.broadcastTXT(msg);
+    }
+  
+    mySwitch.resetAvailable();
+  }
+}
+
+void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length) {
+    switch(type) {
+        case WStype_DISCONNECTED:
+            break;
+        case WStype_CONNECTED:
+            break;
+        case WStype_TEXT:
+            break;
+        case WStype_BIN:
+            break;
+    }
+}
+
 void setup(void){
   Serial.begin(SERIAL_BAUD_RATE);
   
@@ -171,6 +210,7 @@ void setup(void){
   
   setupRequestHandlers();
   setupTimers();
+  setupWebsocket();
 
   server.begin();
   Serial.println("HTTP server started");
@@ -179,5 +219,7 @@ void setup(void){
 void loop(void){
   server.handleClient();
   scheduler.execute();
+  webSocket.loop();
+  rcReceiveHandle();
 }
 
