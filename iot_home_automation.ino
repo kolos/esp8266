@@ -16,6 +16,7 @@
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <WebSocketsServer.h>
+#include <ESP8266HTTPUpdateServer.h>
 
 #include "constants.h"
 
@@ -28,6 +29,7 @@ Ticker ticker;
 Scheduler scheduler;
 RCSwitch mySwitch = RCSwitch();
 ESP8266WebServer server(WEBSERVER_PORT);
+ESP8266HTTPUpdateServer httpUpdater;
 const size_t bufferSize = JSON_OBJECT_SIZE(3) + 40;
 DynamicJsonBuffer jsonBuffer(bufferSize);
 ESP8266WiFiMulti wifiMulti;
@@ -54,6 +56,9 @@ struct muCron {
 };
 
 int32_t pinState, pinTouched;
+volatile bool lightDetected = false;
+unsigned int lightsDetectedArr[LIGHT_DETECT_HOURS] = {0};
+int lastUpdatedHour = -1;
 
 vector<muCron> timers;
 
@@ -107,6 +112,9 @@ void setupWifiClient() {
 }
 
 void setupRequestHandlers() {
+  /** HTTP OTA Update **/
+  httpUpdater.setup(&server, "/update");
+  
   /** Core stuff **/
   server.on("/led", HTTP_POST, handleLED);
   server.on("/scheduler", HTTP_POST, handleScheduler);
@@ -166,6 +174,34 @@ void setupWebsocket() {
   webSocket.onEvent(webSocketEvent);
 }
 
+void lightDetectedInterrupt() {
+  static long lastTriggered;
+  if(lastTriggered + DEBOUNCE_MS < millis()) {
+    lightDetected = true;
+    lastTriggered = millis();
+  }
+}
+
+void setupLightTrigger() {
+  attachInterrupt(LIGHT_PIN, lightDetectedInterrupt, RISING);
+}
+
+void lightDetectedHandle() {
+  if(lightDetected) {
+    int elapsedHours = NTP.getUptime() / 60 / 60;
+    if(elapsedHours > lastUpdatedHour) {
+      lightsDetectedArr[elapsedHours % LIGHT_DETECT_HOURS] = 0;
+    }
+    lightsDetectedArr[elapsedHours % LIGHT_DETECT_HOURS]++;
+    lastUpdatedHour = elapsedHours;
+    String msg = "{\"lightDetected\": ";
+    msg += millis();
+    msg += "}";
+    webSocket.broadcastTXT(msg);
+    lightDetected = false;
+  }
+}
+
 void rcReceiveHandle() {
   if (mySwitch.available()) {
     int value = mySwitch.getReceivedValue();
@@ -212,6 +248,8 @@ void setup(void){
   setupTimers();
   setupWebsocket();
 
+  setupLightTrigger();
+
   server.begin();
   Serial.println("HTTP server started");
 }
@@ -221,5 +259,6 @@ void loop(void){
   scheduler.execute();
   webSocket.loop();
   rcReceiveHandle();
+  lightDetectedHandle();
 }
 

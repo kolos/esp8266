@@ -76,6 +76,12 @@ void handleInfo() {
   message += ESP.getVcc();
   message += ",\"heap\":";
   message += ESP.getFreeHeap();
+  message += ",\"lights\": [";
+  for(byte i = 0; i<LIGHT_DETECT_HOURS; i++) {
+   message += lightsDetectedArr[i];
+   message += ","; 
+  }
+  message += "null]";
   message += ",\"timers\": [";
   for(muCron timer: timers) {
     message += "{";
@@ -92,8 +98,7 @@ void handleInfo() {
     message += ",\"enabled\": ";
     message += timer.enabled;
     message += "}, ";
-  }
-  
+  }  
   message += "null]";
   message += "}";
   server.sendHeader("Access-Control-Allow-Origin", "*");

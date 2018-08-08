@@ -4,14 +4,17 @@
 
 #define RC_RECEIVE_PIN        D1
 #define RC_TRANSMIT_PIN       D2
+#define ONEWIRE_PIN           D3
 #define LED_PIN               D4
 #define RELAY1_PIN            D5
 #define RELAY2_PIN            D6
-#define ONEWIRE_PIN           D3
+#define LIGHT_PIN             D7
 
 #define WEATHER_UPDATE_MINS   60
 #define TEMP_UPLOAD_MINS      5
 #define NUM_OF_TEMP_SENSORS   4
+#define DEBOUNCE_MS           100
+#define LIGHT_DETECT_HOURS    72
 
 #define WIFI_SSID             "***"
 #define WIFI_PASSWORD         "***"
