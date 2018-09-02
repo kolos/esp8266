@@ -17,6 +17,7 @@
 #include <DallasTemperature.h>
 #include <WebSocketsServer.h>
 #include <ESP8266HTTPUpdateServer.h>
+#include <PubSubClient.h>
 
 #include "constants.h"
 
@@ -38,6 +39,10 @@ DallasTemperature tempSensors(&oneWire);
 DeviceAddress tempDeviceAddress;
 File fsUploadFile;
 WebSocketsServer webSocket = WebSocketsServer(WEBSOCKET_PORT);
+
+void msgReceived(char* topic, byte* payload, unsigned int len);
+WiFiClientSecure wiFiClient;
+PubSubClient pubSubClient(MQTT_BROKER, MQTT_BROKER_PORT, msgReceived, wiFiClient); 
 
 struct _weatherInfo {
   float hom = 0;
@@ -213,6 +218,8 @@ void lightsDetectedHandle() {
       msg += millis();
       msg += "}";
       webSocket.broadcastTXT(msg);
+
+      pubSubClient.publish("power/1/blink", String(millis()).c_str());
   
       lightDetected = false;
     }
@@ -224,6 +231,8 @@ void lightsDetectedHandle() {
       msg += millis();
       msg += "}";
       webSocket.broadcastTXT(msg);
+
+      pubSubClient.publish("power/2/blink", String(millis()).c_str());
       
       light2Detected = false;
     }
@@ -261,6 +270,33 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
     }
 }
 
+void msgReceived(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message received on "); Serial.print(topic); Serial.print(": ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+}
+
+void setupPubSubClient() {
+  loadcerts();
+  
+  char chipname[13];
+  sprintf(chipname, "ESP-%08X", ESP.getChipId());
+  Serial.print("PubSubClient connecting to: ");
+  Serial.print(MQTT_BROKER);
+  Serial.print(":");
+  Serial.print(MQTT_BROKER_PORT);
+  while (!pubSubClient.connected()) {
+    Serial.print(".");
+    pubSubClient.connect(chipname, MQTT_USER, MQTT_PASSWORD);
+  }
+  Serial.println(" connected");
+  
+  /** subscribe to a topic **/
+  // pubSubClient.subscribe("sometopic");
+}
+
 void setup(void){
   Serial.begin(SERIAL_BAUD_RATE);
   
@@ -271,12 +307,14 @@ void setup(void){
   NBNS.begin(DHCP_CLIENTNAME);
   SPIFFS.begin();
   NTP.begin();
-  
+
   setupRequestHandlers();
   setupTimers();
   setupWebsocket();
 
   setupLightTrigger();
+
+  setupPubSubClient();
 
   server.begin();
   Serial.println("HTTP server started");
@@ -288,4 +326,5 @@ void loop(void){
   webSocket.loop();
   rcReceiveHandle();
   lightsDetectedHandle();
+  pubSubClient.loop();
 }

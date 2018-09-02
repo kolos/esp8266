@@ -45,3 +45,7 @@
 #define RC_KAPU_EVENT_AUTO    ***
 #define RC_KAPU_EVENT_GYALOG  ***
 
+#define MQTT_BROKER           "***"
+#define MQTT_BROKER_PORT      8883
+#define MQTT_USER             "***"
+#define MQTT_PASSWORD         "***"
