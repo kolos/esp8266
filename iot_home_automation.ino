@@ -57,8 +57,10 @@ struct muCron {
 
 int32_t pinState, pinTouched;
 volatile bool lightDetected = false;
+volatile bool light2Detected = false;
 unsigned int lightsDetectedArr[LIGHT_DETECT_HOURS] = {0};
-int lastUpdatedHour = -1;
+unsigned int lightsDetectedArr2[LIGHT_DETECT_HOURS] = {0};
+byte lastUpdatedHour = -1;
 
 vector<muCron> timers;
 
@@ -182,23 +184,49 @@ void lightDetectedInterrupt() {
   }
 }
 
-void setupLightTrigger() {
-  attachInterrupt(LIGHT_PIN, lightDetectedInterrupt, RISING);
+void light2DetectedInterrupt() {
+  static long lastTriggered2;
+  if(lastTriggered2 + DEBOUNCE_MS < millis()) {
+    light2Detected = true;
+    lastTriggered2 = millis();
+  }
 }
 
-void lightDetectedHandle() {
-  if(lightDetected) {
-    int elapsedHours = NTP.getUptime() / 60 / 60;
-    if(elapsedHours > lastUpdatedHour) {
-      lightsDetectedArr[elapsedHours % LIGHT_DETECT_HOURS] = 0;
+void setupLightTrigger() {
+  attachInterrupt(LIGHT_PIN, lightDetectedInterrupt, RISING);
+  attachInterrupt(LIGHT2_PIN, light2DetectedInterrupt, RISING);
+}
+
+void lightsDetectedHandle() {
+  if(lightDetected || light2Detected) {
+    byte elapsedHours = (NTP.getUptime() / 60 / 60) % LIGHT_DETECT_HOURS;
+    for(byte i = elapsedHours; i > lastUpdatedHour; i--) {
+      lightsDetectedArr[elapsedHours] = 0;
+      lightsDetectedArr2[elapsedHours] = 0;
     }
-    lightsDetectedArr[elapsedHours % LIGHT_DETECT_HOURS]++;
     lastUpdatedHour = elapsedHours;
-    String msg = "{\"lightDetected\": ";
-    msg += millis();
-    msg += "}";
-    webSocket.broadcastTXT(msg);
-    lightDetected = false;
+  
+    if(lightDetected) {
+      lightsDetectedArr[elapsedHours]++;
+      
+      String msg = "{\"lightDetected\": ";
+      msg += millis();
+      msg += "}";
+      webSocket.broadcastTXT(msg);
+  
+      lightDetected = false;
+    }
+  
+    if(light2Detected) {
+      lightsDetectedArr2[elapsedHours]++;
+      
+      String msg = "{\"light2Detected\": ";
+      msg += millis();
+      msg += "}";
+      webSocket.broadcastTXT(msg);
+      
+      light2Detected = false;
+    }
   }
 }
 
@@ -259,6 +287,5 @@ void loop(void){
   scheduler.execute();
   webSocket.loop();
   rcReceiveHandle();
-  lightDetectedHandle();
+  lightsDetectedHandle();
 }
-

@@ -9,6 +9,7 @@
 #define RELAY1_PIN            D5
 #define RELAY2_PIN            D6
 #define LIGHT_PIN             D7
+#define LIGHT2_PIN            D8
 
 #define WEATHER_UPDATE_MINS   60
 #define TEMP_UPLOAD_MINS      5

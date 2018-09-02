@@ -50,7 +50,6 @@ void handleInfo() {
   }
 
   tempSensors.requestTemperatures();
-  float temp = tempSensors.getTempCByIndex(0);
 
   String message = "{\"time\":";
   message += now();
@@ -62,8 +61,6 @@ void handleInfo() {
   message += WiFi.SSID();
   message += "\",\"uptime\":";
   message += NTP.getUptime();
-  message += ",\"belso_hom\":";
-  message += temp;
   message += ",\"hom\":";
   message += weatherInfo.hom;
   message += ",\"eso_1ora\":";
@@ -79,6 +76,12 @@ void handleInfo() {
   message += ",\"lights\": [";
   for(byte i = 0; i<LIGHT_DETECT_HOURS; i++) {
    message += lightsDetectedArr[i];
+   message += ","; 
+  }
+  message += "null]";
+  message += ",\"lights2\": [";
+  for(byte i = 0; i<LIGHT_DETECT_HOURS; i++) {
+   message += lightsDetectedArr2[i];
    message += ","; 
   }
   message += "null]";
@@ -99,6 +102,14 @@ void handleInfo() {
     message += timer.enabled;
     message += "}, ";
   }  
+  message += "null]";
+  message += ",\"temp\": [";
+  for(int i=0; i < NUM_OF_TEMP_SENSORS;i++) {    
+    if(tempSensors.getAddress(tempDeviceAddress, i)) {
+      message += tempSensors.getTempC(tempDeviceAddress);
+      message += ",";
+    }
+  }
   message += "null]";
   message += "}";
   server.sendHeader("Access-Control-Allow-Origin", "*");
