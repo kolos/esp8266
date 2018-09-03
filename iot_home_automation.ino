@@ -278,23 +278,24 @@ void msgReceived(char* topic, byte* payload, unsigned int length) {
   Serial.println();
 }
 
-void setupPubSubClient() {
-  loadcerts();
-  
-  char chipname[13];
-  sprintf(chipname, "ESP-%08X", ESP.getChipId());
-  Serial.print("PubSubClient connecting to: ");
-  Serial.print(MQTT_BROKER);
-  Serial.print(":");
-  Serial.print(MQTT_BROKER_PORT);
-  while (!pubSubClient.connected()) {
-    Serial.print(".");
-    pubSubClient.connect(chipname, MQTT_USER, MQTT_PASSWORD);
+void setupPubSubLoop() {
+  if(!pubSubClient.connected()) {
+    char chipname[13];
+    sprintf(chipname, "ESP-%08X", ESP.getChipId());
+    Serial.print("PubSubClient connecting to: ");
+    Serial.print(MQTT_BROKER);
+    Serial.print(":");
+    Serial.print(MQTT_BROKER_PORT);
+    while (!pubSubClient.connected()) {
+      Serial.print(".");
+      pubSubClient.connect(chipname, MQTT_USER, MQTT_PASSWORD);
+    }
+    Serial.println(" connected");
+    
+    /** subscribe to a topic **/
+    // pubSubClient.subscribe("sometopic");
   }
-  Serial.println(" connected");
-  
-  /** subscribe to a topic **/
-  // pubSubClient.subscribe("sometopic");
+  pubSubClient.loop();
 }
 
 void setup(void){
@@ -314,7 +315,7 @@ void setup(void){
 
   setupLightTrigger();
 
-  setupPubSubClient();
+  loadPubSubCerts();
 
   server.begin();
   Serial.println("HTTP server started");
@@ -326,5 +327,5 @@ void loop(void){
   webSocket.loop();
   rcReceiveHandle();
   lightsDetectedHandle();
-  pubSubClient.loop();
+  setupPubSubLoop();
 }

@@ -6,7 +6,7 @@
  *  https://github.com/knolleary/pubsubclient/issues/84#issuecomment-350549450
  */
 
-bool loadcerts() {
+bool loadPubSubCerts() {
   if (!SPIFFS.begin()) {
     Serial.println("Failed to mount file system");
     return false;
